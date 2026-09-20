@@ -572,6 +572,7 @@ function hideError() { errorBox.classList.add('hidden'); }
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 function extractYoutubeId(url) {
+  if (!url) return null;
   const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|shorts\/|embed\/))([\w-]{11})/);
   return m ? m[1] : null;
 }
@@ -804,42 +805,18 @@ function speakWithBrowserTTS(text, lang) {
 }
 
 function playWordAudio(item) {
-  const hasRange = typeof item.timestamp_start_sec === 'number' && isFinite(item.timestamp_start_sec) &&
-    typeof item.timestamp_end_sec === 'number' && isFinite(item.timestamp_end_sec) &&
-    item.timestamp_end_sec > item.timestamp_start_sec;
-  const holder = document.getElementById('playerHolder');
-  const mediaEl = hasRange ? holder.querySelector('video, audio') : null;
-  const ytIframe = hasRange ? holder.querySelector('iframe') : null;
+  if (!item || !item.word) return;
+  const langCfg = getLanguageConfig(lastResult && lastResult.language);
+  const speechLang = langCfg ? langCfg.speechLang : 'th-TH';
 
-  if (hasRange) {
-    // 추정 시점이 살짝 어긋나도 단어 전체를 놓치지 않도록 앞뒤로 약간의 여유를 둡니다.
-    const start = Math.max(0, item.timestamp_start_sec - 0.15);
-    const end = item.timestamp_end_sec + 0.2;
-
-    if (mediaEl && mediaEl.src) {
-      mediaEl.currentTime = start;
-      const onTimeUpdate = () => {
-        if (mediaEl.currentTime >= end) stop();
-      };
-      const stop = () => {
-        mediaEl.pause();
-        mediaEl.removeEventListener('timeupdate', onTimeUpdate);
-      };
-      mediaEl.addEventListener('timeupdate', onTimeUpdate);
-      mediaEl.play().catch(() => {});
-      setTimeout(stop, (end - start) * 1000 + 1000); // timeupdate를 놓칠 경우를 대비한 안전장치
-      return;
-    }
-    if (ytIframe && ytIframe.src.includes('youtube.com/embed')) {
-      ytCommand(ytIframe, 'seekTo', [start, true]);
-      ytCommand(ytIframe, 'playVideo');
-      setTimeout(() => ytCommand(ytIframe, 'pauseVideo'), (end - start) * 1000);
-      return;
-    }
-  }
-
-  const speechLang = getLanguageConfig(lastResult && lastResult.language).speechLang;
-  speakWithBrowserTTS(item.word, speechLang);
+  // 구글 원어민 TTS 음성으로 깨끗하고 또박또박한 발음 재생
+  const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(item.word)}&tl=${speechLang}&client=tw-ob`;
+  const audio = new Audio(ttsUrl);
+  
+  audio.play().catch((err) => {
+    console.warn('구글 TTS 재생 실패, 브라우저 내장 음성으로 대체합니다.', err);
+    speakWithBrowserTTS(item.word, speechLang);
+  });
 }
 
 async function lookupVocabMeaning(word, scriptContext, lang) {

@@ -79,11 +79,7 @@
       <label class="block text-sm font-medium text-gray-600 mb-1.5">또는 파일 업로드</label>
       <div id="dropZone"
         class="border border-gray-300 rounded-lg p-2.5 mb-1.5 flex items-center justify-between gap-3 bg-white hover:border-orange-300 transition">
-        <label for="fileInput" class="cursor-pointer shrink-0 bg-orange-50 hover:bg-orange-100 text-orange-700 text-xs font-semibold px-3 py-2 rounded-md border border-orange-200">
-          파일 선택
-        </label>
-        <input id="fileInput" type="file" accept="video/*,audio/*,image/*,application/pdf" class="hidden" />
-        <p id="dropZoneText" class="text-xs text-gray-400 truncate flex-1 text-right">여기에 파일을 끌어다 놓거나 캡처 이미지(Ctrl+V)를 붙여넣으세요</p>
+        <input id="fileInput" type="file" accept="video/*,audio/*,image/*,application/pdf" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100 cursor-pointer" />
       </div>
       <p class="text-xs text-gray-400 mb-4">지원 형식 — 영상: MP4·MOV·WEBM·AVI·WMV·FLV·3GP / 음성: MP3·WAV·AAC·OGG·FLAC·AIFF / 이미지: JPG·PNG·WEBP·HEIC (대본·자막·메뉴판 등 텍스트가 담긴 사진) / 문서: PDF</p>
 
@@ -431,7 +427,6 @@ languageSelect.addEventListener('change', () => {
   applyLanguageLabels(languageSelect.value);
 });
 
-// 유튜브 공식 oEmbed API로 원본 영상 제목을 확실히 가져옴
 async function fetchYoutubeTitle(url) {
   try {
     const res = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`);
@@ -473,10 +468,39 @@ const statusBox = document.getElementById('statusBox');
 const statusText = document.getElementById('statusText');
 const errorBox = document.getElementById('errorBox');
 
-/* ---------------- 드래그 앤 드롭 및 클립보드 붙여넣기 ---------------- */
 const dropZone = document.getElementById('dropZone');
-const dropZoneText = document.getElementById('dropZoneText');
 const fileInputEl = document.getElementById('fileInput');
+
+function isSupportedFile(file) {
+  return ['video/', 'audio/', 'image/'].some(p => file.type.startsWith(p)) || file.type === 'application/pdf';
+}
+
+function handleSelectedFile(file) {
+  if (!isSupportedFile(file)) {
+    showError('영상·음성·이미지·PDF 파일만 업로드할 수 있습니다.');
+    return;
+  }
+  hideError();
+  const dataTransfer = new DataTransfer();
+  dataTransfer.items.add(file);
+  fileInputEl.files = dataTransfer.files;
+}
+
+// 클립보드 이미지 붙여넣기 (Ctrl + V) - 최소 안전 변경
+window.addEventListener('paste', (e) => {
+  const items = (e.clipboardData || e.originalEvent?.clipboardData)?.items;
+  if (!items) return;
+  for (let item of items) {
+    if (item.kind === 'file') {
+      const blob = item.getAsFile();
+      if (blob) {
+        const file = new File([blob], `captured_image_${Date.now()}.png`, { type: blob.type || 'image/png' });
+        handleSelectedFile(file);
+        break;
+      }
+    }
+  }
+});
 
 ['dragenter', 'dragover'].forEach(evt => {
   dropZone.addEventListener(evt, (e) => {
@@ -490,48 +514,10 @@ const fileInputEl = document.getElementById('fileInput');
     dropZone.classList.remove('border-orange-400', 'bg-orange-50');
   });
 });
-function isSupportedFile(file) {
-  return ['video/', 'audio/', 'image/'].some(p => file.type.startsWith(p)) || file.type === 'application/pdf';
-}
-
-function handleSelectedFile(file) {
-  if (!isSupportedFile(file)) {
-    dropZoneText.textContent = '영상·음성·이미지·PDF 파일만 업로드할 수 있습니다.';
-    dropZoneText.className = 'text-xs text-red-500 truncate flex-1 text-right';
-    return;
-  }
-  const dataTransfer = new DataTransfer();
-  dataTransfer.items.add(file);
-  fileInputEl.files = dataTransfer.files;
-  dropZoneText.textContent = `선택됨: ${file.name}`;
-  dropZoneText.className = 'text-xs text-gray-700 font-medium truncate flex-1 text-right';
-}
 
 dropZone.addEventListener('drop', (e) => {
   const dropped = e.dataTransfer.files;
   if (dropped && dropped.length) handleSelectedFile(dropped[0]);
-});
-fileInputEl.addEventListener('change', () => {
-  if (fileInputEl.files[0]) handleSelectedFile(fileInputEl.files[0]);
-});
-
-// 클립보드 이미지 붙여넣기 (Ctrl + V)
-window.addEventListener('paste', (e) => {
-  const items = (e.clipboardData || e.originalEvent.clipboardData).items;
-  for (let item of items) {
-    if (item.kind === 'file') {
-      const blob = item.getAsFile();
-      if (blob) {
-        const file = new File([blob], `captured_image_${Date.now()}.png`, { type: blob.type });
-        handleSelectedFile(file);
-        break;
-      }
-    }
-  }
-});
-
-['dragover', 'drop'].forEach(evt => {
-  window.addEventListener(evt, (e) => { if (e.target !== dropZone && !dropZone.contains(e.target)) e.preventDefault(); });
 });
 
 function setStatus(msg) {
@@ -1049,7 +1035,7 @@ analyzeBtn.addEventListener('click', async () => {
 
     const result = await callGemini(parts, undefined, { retryInvalidArgument: !!url, models: MODEL_CANDIDATES_ANALYSIS });
     result.language = getCurrentLanguage();
-    if (ytTitle) result.content_title = ytTitle; // 유튜브 oEmbed 제목으로 강제 지정
+    if (ytTitle) result.content_title = ytTitle;
 
     renderResult(result);
     

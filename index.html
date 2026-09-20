@@ -573,8 +573,10 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 function extractYoutubeId(url) {
   if (!url) return null;
-  const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|shorts\/|embed\/))([\w-]{11})/);
-  return m ? m[1] : null;
+  // 주소 뒤의 ?feature=share, &ab_channel= 등 불필요한 파라미터를 정제
+  const cleanUrl = url.split('?')[0].split('&')[0];
+  const m = cleanUrl.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|shorts\/|embed\/))([\w-]{11})/);
+  return m ? m[1] : (url.match(/[\w-]{11}/) ? url.match(/[\w-]{11}/)[0] : null);
 }
 
 function renderPlayer({ youtubeUrl, file }) {

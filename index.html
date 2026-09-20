@@ -1,0 +1,970 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex, nofollow" />
+<title>태국어 리스닝 학습 노트</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+
+<style>
+  body { font-family: 'Noto Sans KR', 'Noto Sans Thai', system-ui, sans-serif; }
+  .spinner {
+    width: 22px; height: 22px; border-radius: 9999px;
+    border: 3px solid rgba(234,88,12,0.2); border-top-color: #ea580c;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .fade-in { animation: fadeIn 0.35s ease-out; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+  #app-vocab-table th, #app-vocab-table td { vertical-align: top; }
+</style>
+</head>
+<body class="bg-[#faf7f2] text-gray-800">
+
+<!-- ============================================================= -->
+<!-- 로그인 게이트 화면: 로그인 전에는 이 화면만 노출됩니다.            -->
+<!-- 실제 도구의 레이아웃/기능은 로그인하기 전까지 드러나지 않습니다.    -->
+<!-- ============================================================= -->
+<div id="gate" class="min-h-screen flex items-center justify-center px-4">
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 max-w-sm w-full text-center">
+    <h1 class="text-lg font-semibold text-gray-700 mb-2">로그인이 필요합니다</h1>
+    <p class="text-sm text-gray-400 mb-6">구글 계정으로 로그인하면 이용할 수 있습니다.</p>
+    <button id="loginBtn"
+      class="w-full inline-flex items-center justify-center gap-2 border border-gray-300 rounded-lg px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition">
+      <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.4 29.3 35 24 35c-6.1 0-11-4.9-11-11s4.9-11 11-11c2.8 0 5.3 1 7.3 2.7l6-6C33.5 6.5 29 4.5 24 4.5 13.2 4.5 4.5 13.2 4.5 24S13.2 43.5 24 43.5 43.5 34.8 43.5 24c0-1.2-.1-2.4-.3-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 16 19 13 24 13c2.8 0 5.3 1 7.3 2.7l6-6C33.5 6.5 29 4.5 24 4.5c-7.6 0-14.1 4.3-17.4 10.6l-.3-.4z"/><path fill="#4CAF50" d="M24 43.5c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 34.7 26.7 35.5 24 35.5c-5.3 0-9.8-3.6-11.3-8.5l-6.5 5C9.8 39 16.3 43.5 24 43.5z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4.1 5.4l6.2 5.2C40.9 36 43.5 30.6 43.5 24c0-1.2-.1-2.4-.3-3.5z"/></svg>
+      Google 계정으로 로그인
+    </button>
+    <p id="gateError" class="text-xs text-red-500 mt-4 hidden"></p>
+  </div>
+</div>
+
+<!-- ============================================================= -->
+<!-- 승인 대기 화면: 로그인은 했지만 아직 관리자 승인을 받지 못한 계정   -->
+<!-- ============================================================= -->
+<div id="pending" class="hidden min-h-screen flex items-center justify-center px-4">
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 max-w-sm w-full text-center">
+    <h1 class="text-lg font-semibold text-gray-700 mb-2">승인 대기 중입니다</h1>
+    <p class="text-sm text-gray-400 mb-1">로그인은 되었지만 아직 사용 승인을 받지 않은 계정입니다.</p>
+    <p class="text-xs text-gray-400 mb-6">(<span id="pendingEmail" class="font-medium"></span>) 이 이메일로
+      사이트 관리자에게 승인을 요청해주세요.</p>
+    <button id="pendingLogoutBtn" class="text-xs text-gray-400 hover:text-gray-600 underline">로그아웃</button>
+  </div>
+</div>
+
+<!-- ============================================================= -->
+<!-- 메인 앱 (로그인 후에만 표시, 누구나 구글 계정으로 로그인 가능)      -->
+<!-- ============================================================= -->
+<div id="app" class="hidden min-h-screen">
+  <div id="pageContainer" class="max-w-2xl min-[1400px]:max-w-[85.5rem] mx-auto px-4 py-8">
+
+    <div class="flex items-center justify-between mb-6">
+      <h1 id="appTitle" class="text-xl font-bold text-gray-800">🇹🇭 태국어 리스닝 학습 노트</h1>
+      <div class="flex items-center gap-3">
+        <button id="openKeyModalBtn" type="button" title="Gemini API 키 설정"
+          class="text-gray-400 hover:text-gray-700 transition">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+        </button>
+        <button id="logoutBtn" class="text-xs text-gray-400 hover:text-gray-600 underline">로그아웃</button>
+      </div>
+    </div>
+
+    <div id="mainContent" class="min-[1400px]:flex min-[1400px]:gap-6 min-[1400px]:items-start">
+    <div id="leftCol" class="min-[1400px]:w-[42rem] min-[1400px]:flex-none">
+    <!-- 입력 영역 -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 mb-6">
+      <label class="block text-sm font-medium text-gray-600 mb-1.5">분석할 언어</label>
+      <select id="languageSelect"
+        class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-orange-300">
+        <option value="thai">🇹🇭 태국어</option>
+        <option value="spanish">🇪🇸 스페인어</option>
+        <option value="english">🇺🇸 영어</option>
+      </select>
+
+      <label class="block text-sm font-medium text-gray-600 mb-1.5">유튜브 영상 링크</label>
+      <input id="videoUrl" type="text" placeholder="https://www.youtube.com/watch?v=..."
+        class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300" />
+      <p class="text-xs text-gray-400 mt-1.5 mb-4">※ 공개(public) 유튜브 링크만 지원됩니다. 틱톡·인스타그램 등 다른 사이트 링크는 지원되지 않으니, 해당 영상은 다운로드 후 아래 파일 업로드를 이용해주세요.</p>
+
+      <label class="block text-sm font-medium text-gray-600 mb-1.5">또는 파일 업로드</label>
+      <div id="dropZone"
+        class="border-2 border-dashed border-gray-300 rounded-lg p-4 mb-1.5 text-center transition">
+        <input id="fileInput" type="file" accept="video/*,audio/*,image/*,application/pdf"
+          class="w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-orange-50 file:text-orange-700 file:text-sm hover:file:bg-orange-100" />
+        <p id="dropZoneText" class="text-xs text-gray-400 mt-2">여기에 파일을 끌어다 놓아도 됩니다</p>
+      </div>
+      <p class="text-xs text-gray-400 mb-4">지원 형식 — 영상: MP4·MOV·WEBM·AVI·WMV·FLV·3GP / 음성: MP3·WAV·AAC·OGG·FLAC·AIFF / 이미지: JPG·PNG·WEBP·HEIC (대본·자막·메뉴판 등 텍스트가 담긴 사진) / 문서: PDF</p>
+
+      <button id="analyzeBtn"
+        class="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2.5 rounded-lg text-sm transition disabled:opacity-50 disabled:cursor-not-allowed">
+        분석 시작
+      </button>
+
+      <!-- 로딩 / 상태 표시 -->
+      <div id="statusBox" class="hidden mt-4 flex items-center gap-3 bg-orange-50 border border-orange-100 rounded-lg px-4 py-3">
+        <div class="spinner"></div>
+        <span id="statusText" class="text-sm text-orange-700">처리 중...</span>
+      </div>
+      <p id="errorBox" class="hidden mt-4 text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-3"></p>
+    </div>
+
+    <!-- 1) 첨부 미리보기 (영상/음성/이미지/PDF) -->
+    <div id="playerSection" class="hidden fade-in bg-white rounded-2xl shadow-sm border border-gray-200 p-5 mb-6">
+      <h2 id="playerSectionTitle" class="text-sm font-semibold text-gray-500 mb-3">영상 / 음성</h2>
+      <div id="playerHolder" class="rounded-lg overflow-hidden bg-black aspect-video flex items-center justify-center"></div>
+    </div>
+    </div>
+    <div id="rightCol" class="min-[1400px]:w-[42rem] min-[1400px]:flex-none">
+
+    <!-- 2) 태국어 스크립트 -->
+    <div id="scriptSection" class="hidden fade-in bg-white rounded-2xl shadow-sm border border-gray-200 p-5 mb-6">
+      <div class="flex items-center justify-between mb-3">
+        <h2 id="scriptSectionTitle" class="text-sm font-semibold text-gray-500">태국어 스크립트</h2>
+        <button data-copy="scriptText" class="copy-btn text-xs text-orange-600 border border-orange-200 rounded-md px-2.5 py-1 hover:bg-orange-50">복사하기</button>
+      </div>
+      <pre id="scriptText" class="whitespace-pre-wrap font-sans text-[15px] leading-relaxed text-gray-800"></pre>
+    </div>
+
+    <!-- 3) 한국어 번역 -->
+    <div id="translationSection" class="hidden fade-in bg-white rounded-2xl shadow-sm border border-gray-200 p-5 mb-6">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-sm font-semibold text-gray-500">한국어 번역</h2>
+        <button data-copy="translationText" class="copy-btn text-xs text-orange-600 border border-orange-200 rounded-md px-2.5 py-1 hover:bg-orange-50">복사하기</button>
+      </div>
+      <pre id="translationText" class="whitespace-pre-wrap font-sans text-[15px] leading-relaxed text-gray-800"></pre>
+    </div>
+
+    <!-- 4) 단어 정리 표 -->
+    <div id="vocabSection" class="hidden fade-in bg-white rounded-2xl shadow-sm border border-gray-200 p-5 mb-10">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-sm font-semibold text-gray-500">단어 정리</h2>
+        <button id="copyVocabBtn" class="copy-btn text-xs text-orange-600 border border-orange-200 rounded-md px-2.5 py-1 hover:bg-orange-50">복사하기</button>
+      </div>
+      <div class="overflow-x-auto">
+        <table id="app-vocab-table" class="w-full text-sm border-collapse">
+          <thead>
+            <tr class="bg-orange-50 text-orange-800">
+              <th id="vocabHeaderWord" class="text-left px-3 py-2 rounded-l-lg border-b border-orange-100 w-1/6">ภาษาไทย</th>
+              <th id="vocabHeaderMeaning" class="text-left px-3 py-2 border-b border-orange-100 w-1/6">ความหมาย</th>
+              <th id="vocabHeaderContext" class="text-left px-3 py-2 border-b border-orange-100">รายละเอียดและบริบทการใช้</th>
+              <th class="px-2 py-2 rounded-r-lg border-b border-orange-100 w-8"></th>
+            </tr>
+          </thead>
+          <tbody id="vocabBody" class="divide-y divide-gray-100"></tbody>
+        </table>
+      </div>
+
+      <!-- 스크립트를 보다가 빠진 단어를 발견하면 직접 추가할 수 있습니다 -->
+      <div class="border-t border-gray-100 mt-4 pt-4">
+        <p id="addVocabHint" class="text-xs font-medium text-gray-500 mb-2">단어 직접 추가하기 — 태국어만 입력하면 뜻과 설명은 AI가 자동으로 채웁니다</p>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <input id="newVocabWord" type="text" placeholder="태국어 (예: กรุงเทพ)"
+            class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300" />
+          <input id="newVocabKorean" type="text" placeholder="한국어 뜻 (비워두면 자동 입력)"
+            class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300" />
+          <input id="newVocabContext" type="text" placeholder="설명 (비워두면 자동 입력)"
+            class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300" />
+        </div>
+        <button id="addVocabBtn" type="button"
+          class="w-full mt-2 border border-orange-300 text-orange-600 text-sm font-medium rounded-lg py-2 hover:bg-orange-50">
+          + 단어 추가하고 표 업데이트
+        </button>
+      </div>
+    </div>
+
+    <!-- 전체 복사하기 (스크립트 + 번역 + 단어표) -->
+    <div id="copyAllSection" class="hidden fade-in mb-10">
+      <button id="copyAllBtn"
+        class="w-full bg-gray-800 hover:bg-gray-900 text-white font-semibold py-3 rounded-xl text-sm transition">
+        📋 전체 복사하기 (스크립트 + 번역 + 단어표)
+      </button>
+      <p class="text-xs text-gray-400 text-center mt-2">네이버 블로그 등 에디터에 붙여넣으면 단어표가 표 형태로 그대로 유지됩니다.</p>
+    </div>
+
+    </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Gemini API 키 설정 팝업 -->
+<div id="keyModalOverlay" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center px-4 z-50">
+  <div class="bg-white rounded-2xl shadow-lg border border-gray-200 p-6 max-w-sm w-full">
+    <div class="flex items-center justify-between mb-1.5">
+      <h2 class="text-sm font-semibold text-gray-700">Gemini API 키 설정</h2>
+      <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener"
+        class="text-xs text-orange-600 hover:underline">키 발급받기 ↗</a>
+    </div>
+    <div class="flex gap-2 mt-3">
+      <input id="geminiKeyInput" type="password" placeholder="AIza..." autocomplete="off"
+        class="flex-1 border border-gray-300 rounded-lg px-3 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-orange-300" />
+      <button id="toggleKeyVisibility" type="button"
+        class="border border-gray-300 rounded-lg px-3 text-xs text-gray-500 hover:bg-gray-50">표시</button>
+    </div>
+    <div class="flex gap-2 mt-2">
+      <button id="testKeyBtn" type="button"
+        class="flex-1 border border-gray-300 text-gray-600 text-sm font-medium rounded-lg py-2 hover:bg-gray-50">연결 테스트</button>
+      <button id="saveKeyBtn" type="button"
+        class="flex-1 bg-gray-800 hover:bg-gray-900 text-white text-sm font-medium rounded-lg py-2">저장</button>
+      <button id="removeKeyBtn" type="button"
+        class="flex-1 border border-red-200 text-red-500 text-sm font-medium rounded-lg py-2 hover:bg-red-50">키 삭제</button>
+    </div>
+    <p id="keyStatus" class="text-xs mt-2 text-gray-400">이 브라우저에만 저장되며, 다른 사람이나 서버로 전송되지 않습니다.</p>
+    <button id="listModelsBtn" type="button" class="text-xs text-gray-400 hover:text-gray-600 underline mt-2">
+      사용 가능한 모델 목록 보기 (사용 순서: <span id="currentModelLabel"></span>)
+    </button>
+    <div id="modelListBox" class="hidden text-xs text-gray-500 mt-2 max-h-32 overflow-y-auto bg-gray-50 border border-gray-100 rounded-lg p-2"></div>
+    <button id="closeKeyModalBtn" type="button"
+      class="w-full mt-4 border border-gray-200 text-gray-500 text-sm rounded-lg py-2 hover:bg-gray-50">닫기</button>
+  </div>
+</div>
+
+<script>
+/* =================================================================
+   설정 (반드시 본인 값으로 교체하세요) — 자세한 발급 방법은 SETUP.md 참고
+   ================================================================= */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDR1YQHNykDu5wimk022--MRAc2lp75fCQ",
+  authDomain: "blog-77e77.firebaseapp.com",
+  projectId: "blog-77e77",
+  storageBucket: "blog-77e77.firebasestorage.app",
+  messagingSenderId: "111643067231",
+  appId: "1:111643067231:web:e992443ec6dad8fd00acea",
+};
+
+// Gemini API 키는 소스코드에 넣지 않습니다. 로그인한 사용자가 화면에서 직접 입력하면
+// 이 브라우저의 localStorage에만 저장됩니다 (다른 방문자/기기와 공유되지 않음).
+const GEMINI_KEY_STORAGE = 'gemini_api_key';
+// 최신 인기 모델(gemini-3.6-flash 등)은 출시 초기 무료 티어에서 "high demand" 503
+// 에러가 잦습니다. 하나가 혼잡하면 자동으로 다음 모델로 넘어가도록 순서를 둡니다.
+// 이 모델들이 전부 내려가면, 아래 "사용 가능한 모델 목록 보기"로 최신 모델명을 확인해 교체하세요.
+const MODEL_CANDIDATES = ['gemini-3.5-flash-lite', 'gemini-flash-latest', 'gemini-3.6-flash'];
+const GEMINI_MODEL = MODEL_CANDIDATES[0];
+function getGeminiKey() { return localStorage.getItem(GEMINI_KEY_STORAGE) || ''; }
+
+/* ================================================================= */
+
+firebase.initializeApp(FIREBASE_CONFIG);
+const auth = firebase.auth();
+const db = firebase.firestore();
+// 브라우저 창을 완전히 닫으면 로그인 세션도 함께 사라지도록 설정합니다.
+// (기본값은 로그아웃 전까지 계속 로그인 상태가 유지되는 'local' 방식입니다.)
+auth.setPersistence(firebase.auth.Auth.Persistence.SESSION);
+
+const gateEl = document.getElementById('gate');
+const pendingEl = document.getElementById('pending');
+const appEl = document.getElementById('app');
+const gateErrorEl = document.getElementById('gateError');
+const keyInput = document.getElementById('geminiKeyInput');
+const keyStatus = document.getElementById('keyStatus');
+const keyModalOverlay = document.getElementById('keyModalOverlay');
+
+document.getElementById('loginBtn').addEventListener('click', () => {
+  gateErrorEl.classList.add('hidden');
+  const provider = new firebase.auth.GoogleAuthProvider();
+  auth.signInWithPopup(provider).catch(err => {
+    gateErrorEl.textContent = '로그인에 실패했습니다. 다시 시도해주세요.';
+    gateErrorEl.classList.remove('hidden');
+    console.error(err);
+  });
+});
+
+document.getElementById('logoutBtn').addEventListener('click', () => auth.signOut());
+document.getElementById('pendingLogoutBtn').addEventListener('click', () => auth.signOut());
+
+// 로컬 미리보기(localhost/127.0.0.1 또는 파일로 직접 열기)에서는 로그인 없이 바로
+// 기능을 테스트할 수 있도록 로그인 게이트를 건너뜁니다. 실제로 배포된 도메인에서는
+// 아래의 로그인+승인 절차가 그대로 적용됩니다.
+const IS_LOCAL_PREVIEW = ['localhost', '127.0.0.1'].includes(location.hostname) || location.protocol === 'file:';
+
+if (IS_LOCAL_PREVIEW) {
+  console.warn('[로컬 미리보기 모드] 로그인 없이 앱 화면을 표시합니다. 실제 배포 도메인에서는 로그인이 필요합니다.');
+  gateEl.classList.add('hidden');
+  pendingEl.classList.add('hidden');
+  appEl.classList.remove('hidden');
+  document.getElementById('geminiKeyInput').value = getGeminiKey();
+  updateKeyStatus();
+} else {
+  // 승인된 사용자만 이용할 수 있습니다. 승인 여부는 Firestore의 approvedUsers 컬렉션으로
+  // 관리하며, 관리자가 Firebase 콘솔에서 문서를 추가/삭제하는 것만으로 승인/차단이 됩니다.
+  // (자세한 방법은 SETUP.md 참고)
+  auth.onAuthStateChanged(async (user) => {
+    gateEl.classList.add('hidden');
+    pendingEl.classList.add('hidden');
+    appEl.classList.add('hidden');
+
+    if (!user) {
+      gateEl.classList.remove('hidden');
+      return;
+    }
+
+    let approved = false;
+    try {
+      const doc = await db.collection('approvedUsers').doc(user.email).get();
+      approved = doc.exists && doc.data().approved === true;
+    } catch (err) {
+      console.error('승인 여부 확인 실패:', err);
+    }
+
+    if (approved) {
+      appEl.classList.remove('hidden');
+      document.getElementById('geminiKeyInput').value = getGeminiKey();
+      updateKeyStatus();
+    } else {
+      // 관리자가 Firebase 콘솔에서 누가 승인을 기다리는지 볼 수 있도록 요청 기록을 남깁니다.
+      db.collection('requests').doc(user.email).set({
+        email: user.email,
+        displayName: user.displayName || '',
+        lastRequestedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      }, { merge: true }).catch(err => console.error('요청 기록 실패:', err));
+
+      document.getElementById('pendingEmail').textContent = user.email;
+      pendingEl.classList.remove('hidden');
+    }
+  });
+}
+
+document.getElementById('openKeyModalBtn').addEventListener('click', () => {
+  keyInput.value = getGeminiKey();
+  updateKeyStatus();
+  document.getElementById('currentModelLabel').textContent = MODEL_CANDIDATES.join(' → ');
+  document.getElementById('modelListBox').classList.add('hidden');
+  keyModalOverlay.classList.remove('hidden');
+});
+
+document.getElementById('listModelsBtn').addEventListener('click', async () => {
+  const key = keyInput.value.trim();
+  const box = document.getElementById('modelListBox');
+  if (!key) { showError('먼저 API 키를 입력해주세요.'); return; }
+  box.classList.remove('hidden');
+  box.textContent = '불러오는 중...';
+  try {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error?.message || '모델 목록을 불러오지 못했습니다.');
+    const names = (data.models || [])
+      .filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
+      .map(m => m.name.replace('models/', ''));
+    box.innerHTML = names.length
+      ? names.map(n => `<div>${escapeHtml(n)}</div>`).join('')
+      : '이 키로 사용 가능한 모델이 없습니다.';
+  } catch (err) {
+    box.textContent = '✗ ' + (err.message || '모델 목록을 불러오지 못했습니다.');
+  }
+});
+document.getElementById('closeKeyModalBtn').addEventListener('click', () => {
+  keyModalOverlay.classList.add('hidden');
+});
+keyModalOverlay.addEventListener('click', (e) => {
+  if (e.target === keyModalOverlay) keyModalOverlay.classList.add('hidden');
+});
+
+function updateKeyStatus() {
+  if (getGeminiKey()) {
+    keyStatus.textContent = '✓ API 키가 저장되어 있습니다. (이 브라우저에만 저장됨)';
+    keyStatus.className = 'text-xs mt-2 text-green-600';
+  } else {
+    keyStatus.textContent = '분석을 시작하려면 먼저 API 키를 입력하고 저장하세요.';
+    keyStatus.className = 'text-xs mt-2 text-orange-500';
+  }
+}
+
+document.getElementById('saveKeyBtn').addEventListener('click', () => {
+  const key = keyInput.value.trim();
+  if (!key) { keyStatus.textContent = '키를 입력해주세요.'; keyStatus.className = 'text-xs mt-2 text-red-500'; return; }
+  localStorage.setItem(GEMINI_KEY_STORAGE, key);
+  updateKeyStatus();
+});
+
+document.getElementById('removeKeyBtn').addEventListener('click', () => {
+  localStorage.removeItem(GEMINI_KEY_STORAGE);
+  keyInput.value = '';
+  updateKeyStatus();
+});
+
+document.getElementById('testKeyBtn').addEventListener('click', async () => {
+  const key = keyInput.value.trim();
+  if (!key) { keyStatus.textContent = '키를 입력해주세요.'; keyStatus.className = 'text-xs mt-2 text-red-500'; return; }
+  localStorage.setItem(GEMINI_KEY_STORAGE, key);
+  keyStatus.textContent = '연결 테스트 중...';
+  keyStatus.className = 'text-xs mt-2 text-gray-400';
+  try {
+    await callGemini([{ text: 'Reply with exactly one word: OK' }]);
+    keyStatus.textContent = '✓ 정상적으로 연결되었습니다.';
+    keyStatus.className = 'text-xs mt-2 text-green-600';
+  } catch (err) {
+    keyStatus.textContent = '✗ 연결 실패: ' + (err.message || '알 수 없는 오류');
+    keyStatus.className = 'text-xs mt-2 text-red-500';
+  }
+});
+
+document.getElementById('toggleKeyVisibility').addEventListener('click', (e) => {
+  const btn = e.currentTarget;
+  const showing = keyInput.type === 'text';
+  keyInput.type = showing ? 'password' : 'text';
+  btn.textContent = showing ? '표시' : '숨김';
+});
+
+/* ================================================================
+   Gemini 분석 로직
+   ================================================================ */
+
+const LANGUAGES = {
+  thai: {
+    label: '태국어',
+    flag: '🇹🇭',
+    exampleWord: 'กรุงเทพ',
+    scriptLabel: '태국어 스크립트',
+    vocabHeaders: ['ภาษาไทย', 'ความหมาย', 'รายละเอียดและบริบทการใช้'],
+  },
+  spanish: {
+    label: '스페인어',
+    flag: '🇪🇸',
+    exampleWord: 'gracias',
+    scriptLabel: '스페인어 스크립트',
+    vocabHeaders: ['Español', 'Significado', 'Detalles y contexto de uso'],
+  },
+  english: {
+    label: '영어',
+    flag: '🇺🇸',
+    exampleWord: 'thank you',
+    scriptLabel: '영어 스크립트',
+    vocabHeaders: ['English', 'Meaning', 'Details and usage context'],
+  },
+};
+const LANGUAGE_STORAGE = 'analysis_language';
+function getCurrentLanguage() {
+  return LANGUAGES[localStorage.getItem(LANGUAGE_STORAGE)] ? localStorage.getItem(LANGUAGE_STORAGE) : 'thai';
+}
+function getLanguageConfig(lang) {
+  return LANGUAGES[lang] || LANGUAGES.thai;
+}
+
+function applyLanguageLabels(lang) {
+  const L = getLanguageConfig(lang);
+  document.getElementById('appTitle').textContent = `${L.flag} ${L.label} 리스닝 학습 노트`;
+  document.getElementById('scriptSectionTitle').textContent = L.scriptLabel;
+  document.getElementById('vocabHeaderWord').textContent = L.vocabHeaders[0];
+  document.getElementById('vocabHeaderMeaning').textContent = L.vocabHeaders[1];
+  document.getElementById('vocabHeaderContext').textContent = L.vocabHeaders[2];
+  document.getElementById('addVocabHint').textContent = `단어 직접 추가하기 — ${L.label}만 입력하면 뜻과 설명은 AI가 자동으로 채웁니다`;
+  document.getElementById('newVocabWord').placeholder = `${L.label} (예: ${L.exampleWord})`;
+}
+
+const languageSelect = document.getElementById('languageSelect');
+languageSelect.value = getCurrentLanguage();
+applyLanguageLabels(languageSelect.value);
+languageSelect.addEventListener('change', () => {
+  localStorage.setItem(LANGUAGE_STORAGE, languageSelect.value);
+  applyLanguageLabels(languageSelect.value);
+});
+
+function buildPrompt(lang) {
+  const L = getLanguageConfig(lang).label;
+  return `당신은 ${L} 학습 콘텐츠를 만드는 전문 ${L} 선생님입니다.
+첨부된 자료를 분석해 아래 작업을 수행하세요. 자료 종류에 따라 방식이 다릅니다.
+
+- 영상/음성인 경우: 영상 시작부터 끝까지 들리는 ${L} 음성을 **한 마디도 빠짐없이 전부** 문장/의미 단위로
+  끊어 번호를 매겨 정확히 받아적으세요. 절대 요약하거나 일부만 발췌하지 마세요. 짧은 감탄사, 추임새,
+  반복되는 말, 배경에서 들리는 대사까지도 전부 포함해야 합니다. 영상이 길면 번호도 그만큼 많아져야 합니다.
+- 이미지/PDF인 경우: 사진이나 문서 안에 보이는 모든 ${L} 텍스트를 순서대로(위에서 아래, 왼쪽에서 오른쪽) 읽어
+  번호를 매겨 그대로 옮기세요 (표지판, 메뉴판, 자막, 문서 등 어떤 형태든 보이는 ${L} 텍스트를 빠짐없이).
+
+공통 작업:
+1. 위 방식으로 번호가 매겨진 ${L} 전체 텍스트를 만드세요. 예: "1. ...\\n2. ...\\n3. ..." 일부만
+   옮기고 중간에 생략하는 것은 절대 허용되지 않습니다. 끝까지 전부 작성하세요.
+2. 각 번호에 정확히 대응하는 자연스러운 한국어 번역을 같은 번호로 제공하세요.
+3. 1번에서 옮긴 전체 텍스트에 실제로 등장한 핵심 ${L} 단어/표현을 빠짐없이 폭넓게 추출하세요
+   (내용 길이에 비례해서, 최소 5개 이상 — 텍스트가 길면 그만큼 더 많이). 각 단어에 대해
+   한국어 뜻과, 복합어/숙어인 경우 구성 단어별 의미 및 뉘앙스를 군더더기 없이 핵심만 한국어로 설명하세요.
+
+다음 JSON 스키마로만 응답하고, 그 외의 설명 텍스트는 절대 포함하지 마세요.
+{
+  "script_text": "번호가 매겨진 ${L} 전체 텍스트 (줄바꿈 포함)",
+  "translation_kr": "${L} 텍스트 번호에 대응하는 한국어 전체 번역 (줄바꿈 포함)",
+  "vocabulary": [
+    { "word": "${L} 단어", "korean": "한국어 뜻", "context": "어원/조합/용법 핵심 설명" }
+  ]
+}`;
+}
+
+const analyzeBtn = document.getElementById('analyzeBtn');
+const statusBox = document.getElementById('statusBox');
+const statusText = document.getElementById('statusText');
+const errorBox = document.getElementById('errorBox');
+
+/* ---------------- 드래그 앤 드롭 파일 업로드 ---------------- */
+const dropZone = document.getElementById('dropZone');
+const dropZoneText = document.getElementById('dropZoneText');
+const fileInputEl = document.getElementById('fileInput');
+
+['dragenter', 'dragover'].forEach(evt => {
+  dropZone.addEventListener(evt, (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dropZone.classList.add('border-orange-400', 'bg-orange-50');
+  });
+});
+['dragleave', 'drop'].forEach(evt => {
+  dropZone.addEventListener(evt, (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dropZone.classList.remove('border-orange-400', 'bg-orange-50');
+  });
+});
+function isSupportedFile(file) {
+  return ['video/', 'audio/', 'image/'].some(p => file.type.startsWith(p)) || file.type === 'application/pdf';
+}
+
+dropZone.addEventListener('drop', (e) => {
+  const dropped = e.dataTransfer.files;
+  if (!dropped || !dropped.length) {
+    dropZoneText.textContent = '파일을 인식하지 못했습니다. 웹페이지의 이미지가 아니라, 내 PC(파일 탐색기)에 저장된 파일을 끌어다 놓아주세요.';
+    dropZoneText.className = 'text-xs text-red-500 mt-2';
+    return;
+  }
+  const file = dropped[0];
+  if (!isSupportedFile(file)) {
+    dropZoneText.textContent = '영상·음성·이미지·PDF 파일만 업로드할 수 있습니다.';
+    dropZoneText.className = 'text-xs text-red-500 mt-2';
+    return;
+  }
+  fileInputEl.files = dropped;
+  dropZoneText.textContent = `선택됨: ${file.name}`;
+  dropZoneText.className = 'text-xs text-gray-500 mt-2';
+});
+fileInputEl.addEventListener('change', () => {
+  if (fileInputEl.files[0]) {
+    dropZoneText.textContent = `선택됨: ${fileInputEl.files[0].name}`;
+    dropZoneText.className = 'text-xs text-gray-500 mt-2';
+  }
+});
+
+// 드롭존 밖에 파일을 놓쳐도 브라우저가 그 파일을 열어버리지 않도록 방지
+['dragover', 'drop'].forEach(evt => {
+  window.addEventListener(evt, (e) => { if (e.target !== dropZone && !dropZone.contains(e.target)) e.preventDefault(); });
+});
+
+function setStatus(msg) {
+  statusBox.classList.remove('hidden');
+  statusText.textContent = msg;
+}
+function hideStatus() { statusBox.classList.add('hidden'); }
+function showError(msg) {
+  errorBox.textContent = msg;
+  errorBox.classList.remove('hidden');
+}
+function hideError() { errorBox.classList.add('hidden'); }
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function extractYoutubeId(url) {
+  const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|shorts\/|embed\/))([\w-]{11})/);
+  return m ? m[1] : null;
+}
+
+function renderPlayer({ youtubeUrl, file }) {
+  const holder = document.getElementById('playerHolder');
+  const title = document.getElementById('playerSectionTitle');
+  holder.innerHTML = '';
+  holder.className = 'rounded-lg overflow-hidden bg-black aspect-video flex items-center justify-center';
+  document.getElementById('playerSection').classList.remove('hidden');
+
+  if (youtubeUrl) {
+    title.textContent = '영상';
+    const id = extractYoutubeId(youtubeUrl);
+    const iframe = document.createElement('iframe');
+    iframe.className = 'w-full h-full';
+    iframe.src = id ? `https://www.youtube.com/embed/${id}` : youtubeUrl;
+    iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+    iframe.allowFullscreen = true;
+    holder.appendChild(iframe);
+  } else if (file) {
+    const url = URL.createObjectURL(file);
+    if (file.type.startsWith('audio/')) {
+      title.textContent = '음성';
+      const media = document.createElement('audio');
+      media.controls = true;
+      media.className = 'w-full p-6';
+      media.src = url;
+      holder.appendChild(media);
+    } else if (file.type.startsWith('image/')) {
+      title.textContent = '첨부 이미지';
+      holder.className = 'rounded-lg overflow-hidden bg-gray-50 flex items-center justify-center';
+      const img = document.createElement('img');
+      img.className = 'max-w-full max-h-[70vh] object-contain';
+      img.src = url;
+      holder.appendChild(img);
+    } else if (file.type === 'application/pdf') {
+      title.textContent = '첨부 PDF';
+      holder.className = 'rounded-lg overflow-hidden bg-gray-50';
+      const iframe = document.createElement('iframe');
+      iframe.className = 'w-full h-[70vh]';
+      iframe.src = url;
+      holder.appendChild(iframe);
+    } else {
+      title.textContent = '영상';
+      const media = document.createElement('video');
+      media.controls = true;
+      media.className = 'w-full h-full';
+      media.src = url;
+      holder.appendChild(media);
+    }
+  }
+}
+
+async function uploadFileToGemini(file) {
+  const boundary = 'gemini_boundary_' + Math.random().toString(36).slice(2);
+  const metadata = { file: { display_name: file.name } };
+  const metaPart = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n`;
+  const fileHeaderPart = `--${boundary}\r\nContent-Type: ${file.type || 'application/octet-stream'}\r\n\r\n`;
+  const closingPart = `\r\n--${boundary}--`;
+  const body = new Blob([metaPart, fileHeaderPart, file, closingPart]);
+
+  const uploadRes = await fetch(
+    `https://generativelanguage.googleapis.com/upload/v1beta/files?key=${getGeminiKey()}`,
+    {
+      method: 'POST',
+      headers: {
+        'X-Goog-Upload-Protocol': 'multipart',
+        'Content-Type': `multipart/related; boundary=${boundary}`,
+      },
+      body,
+    }
+  );
+  const uploadJson = await uploadRes.json();
+  if (!uploadRes.ok) throw new Error(uploadJson.error?.message || '파일 업로드에 실패했습니다.');
+
+  let fileInfo = uploadJson.file;
+  setStatus('파일 처리 중... (파일이 클수록 시간이 걸릴 수 있어요)');
+  while (fileInfo.state === 'PROCESSING') {
+    await sleep(3000);
+    const checkRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/${fileInfo.name}?key=${getGeminiKey()}`);
+    fileInfo = await checkRes.json();
+  }
+  if (fileInfo.state !== 'ACTIVE') throw new Error('파일 처리에 실패했습니다.');
+  return fileInfo;
+}
+
+async function requestGemini(parts, model, generationConfig) {
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${getGeminiKey()}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts }],
+        // 영상이 길면 전체 스크립트가 커지므로 잘리지 않도록 넉넉하게 잡습니다.
+        generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 16384, ...generationConfig },
+      }),
+    }
+  );
+  const data = await res.json();
+  if (!res.ok) {
+    const err = new Error(data.error?.message || 'Gemini 요청에 실패했습니다.');
+    err.status = res.status;
+    throw err;
+  }
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) throw new Error('분석 결과를 받지 못했습니다.');
+  return JSON.parse(text);
+}
+
+function isOverloadedError(err) {
+  return err.status === 503 || /overloaded|high demand/i.test(err.message || '');
+}
+
+// 모델이 혼잡(503)하면 같은 모델로 한 번 더 재시도하고, 그래도 안 되면 다음 후보
+// 모델로 자동 전환합니다. 혼잡 외의 에러(키 오류 등)는 바로 중단합니다.
+async function callGemini(parts, generationConfig) {
+  let lastErr;
+  for (let i = 0; i < MODEL_CANDIDATES.length; i++) {
+    const model = MODEL_CANDIDATES[i];
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        if (i > 0 || attempt > 1) setStatus(`(${model}) 모델로 분석 중...`);
+        return await requestGemini(parts, model, generationConfig);
+      } catch (err) {
+        lastErr = err;
+        if (!isOverloadedError(err)) throw err;
+        const isLastAttempt = attempt === 2;
+        const isLastModel = i === MODEL_CANDIDATES.length - 1;
+        if (isLastAttempt && isLastModel) throw err;
+        setStatus(isLastAttempt
+          ? `${model} 모델이 혼잡하여 다른 모델로 전환합니다...`
+          : `모델이 혼잡합니다. 잠시 후 재시도합니다...`);
+        await sleep(4000);
+      }
+    }
+  }
+  throw lastErr;
+}
+
+let lastResult = null;
+
+function renderVocabTable() {
+  const vocabBody = document.getElementById('vocabBody');
+  vocabBody.innerHTML = '';
+  const vocabulary = (lastResult && lastResult.vocabulary) || [];
+  vocabulary.forEach((item, index) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="px-3 py-2.5 font-medium text-gray-800">${escapeHtml(item.word || '')}</td>
+      <td class="px-3 py-2.5 text-gray-700">${escapeHtml(item.korean || '')}</td>
+      <td class="px-3 py-2.5 text-gray-600">${escapeHtml(item.context || '')}</td>
+      <td class="px-2 py-2.5 text-center">
+        <button type="button" class="removeVocabBtn text-gray-300 hover:text-red-500 text-sm" data-index="${index}" title="삭제">✕</button>
+      </td>
+    `;
+    vocabBody.appendChild(tr);
+  });
+}
+
+document.getElementById('vocabBody').addEventListener('click', (e) => {
+  const btn = e.target.closest('.removeVocabBtn');
+  if (!btn || !lastResult) return;
+  lastResult.vocabulary.splice(Number(btn.dataset.index), 1);
+  renderVocabTable();
+});
+
+async function lookupVocabMeaning(word, scriptContext, lang) {
+  const L = getLanguageConfig(lang).label;
+  const prompt = `당신은 ${L} 선생님입니다. 아래는 학습 중인 ${L} 스크립트 문맥입니다 (참고용, 비어 있으면 무시).
+"""
+${scriptContext || ''}
+"""
+위 문맥에서의 쓰임을 참고해서, 다음 ${L} 단어/표현의 한국어 뜻과, 복합어/숙어인 경우 구성 단어별
+의미 및 뉘앙스를 군더더기 없이 핵심만 설명하세요.
+단어: ${word}
+
+다음 JSON으로만 응답하세요. 다른 설명 텍스트는 포함하지 마세요.
+{ "korean": "한국어 뜻", "context": "어원/조합/용법 핵심 설명" }`;
+  return await callGemini([{ text: prompt }], { maxOutputTokens: 1024 });
+}
+
+document.getElementById('addVocabBtn').addEventListener('click', async () => {
+  if (!lastResult) return;
+  const wordInput = document.getElementById('newVocabWord');
+  const koreanInput = document.getElementById('newVocabKorean');
+  const contextInput = document.getElementById('newVocabContext');
+  const addBtn = document.getElementById('addVocabBtn');
+  const word = wordInput.value.trim();
+  let korean = koreanInput.value.trim();
+  let context = contextInput.value.trim();
+
+  if (!word) {
+    showError('추가할 단어를 입력해주세요.');
+    return;
+  }
+  if (!korean && !getGeminiKey()) {
+    showError('한국어 뜻을 직접 입력하거나, 자동으로 채우려면 먼저 Gemini API 키를 입력하고 저장해주세요.');
+    return;
+  }
+  hideError();
+
+  if (!korean) {
+    addBtn.disabled = true;
+    const originalLabel = addBtn.textContent;
+    addBtn.textContent = '뜻을 찾는 중...';
+    try {
+      const looked = await lookupVocabMeaning(word, lastResult.script_text, getCurrentLanguage());
+      korean = looked.korean || '';
+      context = context || looked.context || '';
+    } catch (err) {
+      showError('단어 뜻을 자동으로 찾지 못했습니다: ' + (err.message || '알 수 없는 오류'));
+      addBtn.disabled = false;
+      addBtn.textContent = originalLabel;
+      hideStatus();
+      return;
+    }
+    addBtn.disabled = false;
+    addBtn.textContent = originalLabel;
+    hideStatus();
+  }
+
+  if (!lastResult.vocabulary) lastResult.vocabulary = [];
+  lastResult.vocabulary.push({ word, korean, context });
+  renderVocabTable();
+
+  wordInput.value = '';
+  koreanInput.value = '';
+  contextInput.value = '';
+  wordInput.focus();
+});
+
+['newVocabWord', 'newVocabKorean', 'newVocabContext'].forEach(id => {
+  document.getElementById(id).addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') document.getElementById('addVocabBtn').click();
+  });
+});
+
+function renderResult(result) {
+  lastResult = result;
+  if (result.language) {
+    languageSelect.value = result.language;
+    applyLanguageLabels(result.language);
+  }
+
+  document.getElementById('scriptSection').classList.remove('hidden');
+  document.getElementById('scriptText').textContent = result.script_text || '';
+
+  document.getElementById('translationSection').classList.remove('hidden');
+  document.getElementById('translationText').textContent = result.translation_kr || '';
+
+  renderVocabTable();
+  document.getElementById('vocabSection').classList.remove('hidden');
+  document.getElementById('copyAllSection').classList.remove('hidden');
+}
+
+analyzeBtn.addEventListener('click', async () => {
+  hideError();
+  const url = document.getElementById('videoUrl').value.trim();
+  const file = document.getElementById('fileInput').files[0];
+
+  if (!url && !file) {
+    showError('유튜브 링크를 입력하거나 파일을 업로드해주세요.');
+    return;
+  }
+  if (file && !isSupportedFile(file)) {
+    showError('지원하지 않는 파일 형식입니다. 영상·음성·이미지·PDF 파일만 업로드할 수 있습니다.');
+    return;
+  }
+  if (!getGeminiKey()) {
+    showError('먼저 위에서 Gemini API 키를 입력하고 저장해주세요.');
+    return;
+  }
+
+  analyzeBtn.disabled = true;
+  ['playerSection', 'scriptSection', 'translationSection', 'vocabSection', 'copyAllSection'].forEach(id =>
+    document.getElementById(id).classList.add('hidden')
+  );
+
+  try {
+    renderPlayer({ youtubeUrl: url || null, file: url ? null : file });
+    const prompt = buildPrompt(getCurrentLanguage());
+
+    let parts;
+    if (url) {
+      setStatus('영상 분석 중...');
+      parts = [{ fileData: { fileUri: url } }, { text: prompt }];
+    } else {
+      setStatus('파일 업로드 중...');
+      const fileInfo = await uploadFileToGemini(file);
+      setStatus('영상 분석 중...');
+      parts = [{ fileData: { fileUri: fileInfo.uri, mimeType: fileInfo.mimeType } }, { text: prompt }];
+    }
+
+    const result = await callGemini(parts);
+    result.language = getCurrentLanguage();
+    renderResult(result);
+    setStatus('완료!');
+    setTimeout(hideStatus, 1500);
+  } catch (err) {
+    console.error(err);
+    hideStatus();
+    showError(err.message || '분석 중 오류가 발생했습니다.');
+  } finally {
+    analyzeBtn.disabled = false;
+  }
+});
+
+document.querySelectorAll('.copy-btn[data-copy]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const text = document.getElementById(btn.dataset.copy).textContent;
+    navigator.clipboard.writeText(text).then(() => flashCopied(btn));
+  });
+});
+
+function escapeHtml(str) {
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function buildVocabTableHtml(vocabulary, lang) {
+  const headers = getLanguageConfig(lang).vocabHeaders;
+  const rows = (vocabulary || []).map(item => `
+    <tr>
+      <td style="border:1px solid #ddd;padding:8px;vertical-align:top;">${escapeHtml(item.word || '')}</td>
+      <td style="border:1px solid #ddd;padding:8px;vertical-align:top;">${escapeHtml(item.korean || '')}</td>
+      <td style="border:1px solid #ddd;padding:8px;vertical-align:top;">${escapeHtml(item.context || '')}</td>
+    </tr>`).join('');
+  return `<table style="border-collapse:collapse;width:100%;font-size:14px;">
+    <thead>
+      <tr style="background:#fff7ed;">
+        <th style="border:1px solid #ddd;padding:8px;text-align:left;">${escapeHtml(headers[0])}</th>
+        <th style="border:1px solid #ddd;padding:8px;text-align:left;">${escapeHtml(headers[1])}</th>
+        <th style="border:1px solid #ddd;padding:8px;text-align:left;">${escapeHtml(headers[2])}</th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+function buildVocabPlainText(vocabulary, lang) {
+  const rows = [getLanguageConfig(lang).vocabHeaders];
+  (vocabulary || []).forEach(item => rows.push([item.word || '', item.korean || '', item.context || '']));
+  return rows.map(r => r.join('\t')).join('\n');
+}
+
+// text/html도 함께 클립보드에 담아, 네이버 블로그 등 리치 에디터에 붙여넣을 때
+// 표 형태(<table>)가 그대로 유지되도록 합니다. 미지원 브라우저는 일반 텍스트로 대체됩니다.
+async function copyRich(plainText, htmlText, btn) {
+  try {
+    if (window.ClipboardItem) {
+      const item = new ClipboardItem({
+        'text/plain': new Blob([plainText], { type: 'text/plain' }),
+        'text/html': new Blob([htmlText], { type: 'text/html' }),
+      });
+      await navigator.clipboard.write([item]);
+    } else {
+      await navigator.clipboard.writeText(plainText);
+    }
+  } catch (e) {
+    console.error(e);
+    await navigator.clipboard.writeText(plainText);
+  }
+  if (btn) flashCopied(btn);
+}
+
+document.getElementById('copyVocabBtn').addEventListener('click', () => {
+  if (!lastResult) return;
+  copyRich(
+    buildVocabPlainText(lastResult.vocabulary, lastResult.language),
+    buildVocabTableHtml(lastResult.vocabulary, lastResult.language),
+    document.getElementById('copyVocabBtn')
+  );
+});
+
+document.getElementById('copyAllBtn').addEventListener('click', () => {
+  if (!lastResult) return;
+  const scriptLabel = getLanguageConfig(lastResult.language).scriptLabel;
+  const scriptPlain = lastResult.script_text || '';
+  const translationPlain = lastResult.translation_kr || '';
+  const vocabPlain = buildVocabPlainText(lastResult.vocabulary, lastResult.language);
+  const vocabHtml = buildVocabTableHtml(lastResult.vocabulary, lastResult.language);
+
+  const plain = `[${scriptLabel}]\n${scriptPlain}\n\n[한국어 번역]\n${translationPlain}\n\n[단어 정리]\n${vocabPlain}`;
+  const html = `
+    <h3>${escapeHtml(scriptLabel)}</h3>
+    <p>${escapeHtml(scriptPlain).replace(/\n/g, '<br>')}</p>
+    <h3>한국어 번역</h3>
+    <p>${escapeHtml(translationPlain).replace(/\n/g, '<br>')}</p>
+    <h3>단어 정리</h3>
+    ${vocabHtml}`;
+
+  copyRich(plain, html, document.getElementById('copyAllBtn'));
+});
+
+function flashCopied(btn) {
+  const original = btn.textContent;
+  btn.textContent = '복사됨!';
+  setTimeout(() => (btn.textContent = original), 1200);
+}
+</script>
+</body>
+</html>

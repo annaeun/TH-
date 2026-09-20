@@ -1,0 +1,27 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 승인된 이메일 목록. 관리자만 Firebase 콘솔에서 문서를 추가/삭제합니다
+    // (콘솔은 이 규칙과 무관하게 항상 접근 가능합니다). 로그인한 사용자는
+    // 오직 자기 자신의 승인 여부만 조회할 수 있습니다.
+    match /approvedUsers/{email} {
+      allow get: if request.auth != null && request.auth.token.email == email;
+      allow list, write: if false;
+    }
+
+    // 미승인 사용자가 로그인 시 남기는 "승인 요청" 기록. 관리자가 Firebase
+    // 콘솔에서 확인하는 용도이며, 클라이언트는 읽을 수 없고 자기 이메일로만
+    // 기록을 남길 수 있습니다.
+    match /requests/{email} {
+      allow create, update: if request.auth != null && request.auth.token.email == email;
+      allow get, list, delete: if false;
+    }
+
+    // 그 외 모든 경로는 기본적으로 차단합니다.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

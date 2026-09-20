@@ -78,8 +78,8 @@
 
       <label class="block text-sm font-medium text-gray-600 mb-1.5">또는 파일 업로드</label>
       <div id="dropZone"
-        class="border-2 border-dashed border-gray-300 rounded-lg p-3 mb-1.5 flex items-center justify-between gap-3 transition">
-        <label for="fileInput" class="cursor-pointer shrink-0 bg-orange-50 hover:bg-orange-100 text-orange-700 text-xs font-medium px-3 py-2 rounded-lg border border-orange-200">
+        class="border border-gray-300 rounded-lg p-2.5 mb-1.5 flex items-center justify-between gap-3 bg-white hover:border-orange-300 transition">
+        <label for="fileInput" class="cursor-pointer shrink-0 bg-orange-50 hover:bg-orange-100 text-orange-700 text-xs font-semibold px-3 py-2 rounded-md border border-orange-200">
           파일 선택
         </label>
         <input id="fileInput" type="file" accept="video/*,audio/*,image/*,application/pdf" class="hidden" />
@@ -431,14 +431,25 @@ languageSelect.addEventListener('change', () => {
   applyLanguageLabels(languageSelect.value);
 });
 
-function buildPrompt(lang, sourceUrl) {
+// 유튜브 공식 oEmbed API로 원본 영상 제목을 확실히 가져옴
+async function fetchYoutubeTitle(url) {
+  try {
+    const res = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.title || null;
+  } catch (err) {
+    return null;
+  }
+}
+
+function buildPrompt(lang) {
   const cfg = getLanguageConfig(lang);
   const L = cfg.label;
-  const urlContext = sourceUrl ? `\n\n분석할 유튜브 영상 URL: ${sourceUrl}` : '';
   return `당신은 ${L} 학습 콘텐츠를 만드는 전문 ${L} 선생님입니다.
-첨부된 자료를 분석해 아래 작업을 수행하세요.${urlContext}
+첨부된 자료를 분석해 아래 작업을 수행하세요.
 
-- 영상/음성인 경우: 실제로 영상을 끝까지 재생하면서 들리는 순서 그대로 받아적고 번호를 매기세요. 영상의 원본 제목(또는 영상의 대표 제목)을 추출해서 content_title에 적으세요.
+- 영상/음성인 경우: 실제로 영상을 끝까지 재생하면서 들리는 순서 그대로 받아적고 번호를 매기세요.
 - 이미지/PDF인 경우: 문서나 이미지 안의 대표 제목을 찾아 content_title에 적고, 보이는 텍스트를 옮기세요.
 
 공통 작업:
@@ -448,7 +459,7 @@ function buildPrompt(lang, sourceUrl) {
 
 다음 JSON 스키마로만 응답하세요:
 {
-  "content_title": "영상의 실제 원본 제목 또는 대표 제목",
+  "content_title": "자료의 대표 제목",
   "script_text": "번호가 매겨진 전체 텍스트",
   "translation_kr": "한국어 전체 번역",
   "vocabulary": [
@@ -493,7 +504,7 @@ function handleSelectedFile(file) {
   dataTransfer.items.add(file);
   fileInputEl.files = dataTransfer.files;
   dropZoneText.textContent = `선택됨: ${file.name}`;
-  dropZoneText.className = 'text-xs text-gray-600 font-medium truncate flex-1 text-right';
+  dropZoneText.className = 'text-xs text-gray-700 font-medium truncate flex-1 text-right';
 }
 
 dropZone.addEventListener('drop', (e) => {
@@ -716,12 +727,12 @@ function renderVocabTable() {
   });
 }
 
-document.getElementById('vocabBody').addEventListener('click', (e) => {
+document.getElementById('vocabBody').addEventListener('click', async (e) => {
   const removeBtn = e.target.closest('.removeVocabBtn');
   if (removeBtn && lastResult) {
     lastResult.vocabulary.splice(Number(removeBtn.dataset.index), 1);
     renderVocabTable();
-    autoSaveHistory();
+    await autoSaveHistory();
     return;
   }
   const playBtn = e.target.closest('.playWordBtn');
@@ -817,7 +828,7 @@ document.getElementById('addVocabBtn').addEventListener('click', async () => {
   if (!lastResult.vocabulary) lastResult.vocabulary = [];
   lastResult.vocabulary.push({ word, korean, context, pronunciation });
   renderVocabTable();
-  autoSaveHistory();
+  await autoSaveHistory();
 
   wordInput.value = '';
   koreanInput.value = '';
@@ -1008,7 +1019,7 @@ analyzeBtn.addEventListener('click', async () => {
   }
 
   analyzeBtn.disabled = true;
-  currentDocId = null; // 새로운 분석 시작 시 초기화
+  currentDocId = null;
   ['playerSection', 'scriptSection', 'translationSection', 'vocabSection', 'copyAllSection'].forEach(id =>
     document.getElementById(id).classList.add('hidden')
   );
@@ -1016,7 +1027,14 @@ analyzeBtn.addEventListener('click', async () => {
   try {
     const canonicalUrl = url ? `https://www.youtube.com/watch?v=${extractYoutubeId(url)}` : null;
     renderPlayer({ youtubeUrl: canonicalUrl, file: url ? null : file });
-    const prompt = buildPrompt(getCurrentLanguage(), canonicalUrl);
+
+    let ytTitle = null;
+    if (url) {
+      setStatus('영상 정보 가져오는 중...');
+      ytTitle = await fetchYoutubeTitle(canonicalUrl);
+    }
+
+    const prompt = buildPrompt(getCurrentLanguage());
 
     let parts;
     if (url) {
@@ -1031,11 +1049,13 @@ analyzeBtn.addEventListener('click', async () => {
 
     const result = await callGemini(parts, undefined, { retryInvalidArgument: !!url, models: MODEL_CANDIDATES_ANALYSIS });
     result.language = getCurrentLanguage();
+    if (ytTitle) result.content_title = ytTitle; // 유튜브 oEmbed 제목으로 강제 지정
+
     renderResult(result);
     
     currentSource = {
       sourceType: url ? 'youtube' : 'file',
-      sourceLabel: url ? url : file.name,
+      sourceLabel: ytTitle || (url ? url : file.name),
       sourceUrl: canonicalUrl,
     };
     

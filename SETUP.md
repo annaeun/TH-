@@ -12,10 +12,9 @@
      projectId: "...",
    };
    ```
-4. 로그인은 구글 계정이면 누구나 시도할 수 있지만, **실제로 도구를 쓰려면 관리자의
-   승인**이 필요합니다 (승인 방법은 아래 "3. 사용자 승인 관리" 참고). 로그인하지 않은
-   방문자에게는 로그인 버튼만 있는 빈 화면만 보이고, 실제 도구 레이아웃/기능은
-   승인 전까지 전혀 노출되지 않습니다.
+4. 구글 계정이 있으면 누구나 로그인해서 이 도구를 쓸 수 있습니다 (관리자 승인
+   절차 없음). 로그인하지 않은 방문자에게는 로그인 버튼만 있는 빈 화면만 보이고,
+   실제 도구 레이아웃/기능은 로그인 전까지 노출되지 않습니다.
 
 ## 2. Gemini API 키 발급 및 보호 (중요)
 1. https://aistudio.google.com/app/apikey 에서 API 키를 발급받으세요.
@@ -31,41 +30,42 @@
    `https://YOUR_PROJECT_ID.web.app/*`, `http://localhost:5173/*`)만 허용해두면
    더 안전합니다.
 
-## 3. 사용자 승인 관리 (Firestore)
+## 3. Firestore 활성화 (분석 히스토리용)
 
-로그인은 누구나 시도할 수 있지만, Firestore의 `approvedUsers` 컬렉션에 등록된
-이메일만 실제로 도구 화면을 볼 수 있습니다. 승인/차단 모두 **Firebase 콘솔에서
-문서를 추가/삭제하는 것만으로** 처리되며, 별도 서버 코드나 이메일 발송 기능은 없습니다.
+이 도구는 로그인한 사용자의 분석 히스토리를 저장하기 위해 Firestore를 사용합니다
+(사용자 승인 절차는 없습니다 — 로그인한 누구나 바로 이용할 수 있습니다).
 
 1. **Firestore 활성화** (아직 안 했다면): Firebase 콘솔 → Firestore Database →
    데이터베이스 만들기 (프로덕션 모드로 시작해도 무방 — 아래 규칙으로 덮어씁니다).
 2. **보안 규칙 적용**: Firestore Database → 규칙 탭에서, 이 프로젝트의
    `firestore.rules` 파일 내용을 그대로 붙여넣고 게시(Publish)하세요.
-3. **본인(관리자) 계정부터 승인 등록** — 이걸 안 하면 본인도 접근이 막힙니다:
-   - Firestore Database → 데이터 탭 → "컬렉션 시작" → 컬렉션 ID: `approvedUsers`
-   - 문서 ID: 본인 구글 이메일 주소를 정확히 입력 (예: `nimankarai2@gmail.com`)
-   - 필드 추가: 필드 이름 `approved`, 유형 `boolean`, 값 `true`
-   - 저장
-4. **새 사용자 승인하기**: 누군가 로그인을 시도하면 `requests` 컬렉션에 그 사람의
-   이메일로 문서가 자동 생성됩니다 (요청 시각 포함). 그 이메일을 확인한 뒤,
-   3번과 같은 방식으로 `approvedUsers` 컬렉션에 같은 이메일 문서를 만들고
-   `approved: true`를 넣으면 그 사람도 즉시 이용할 수 있게 됩니다.
-5. **승인 취소**: `approvedUsers`에서 해당 이메일 문서를 삭제하거나 `approved`를
-   `false`로 바꾸면 됩니다.
 
-⚠️ 이 방식은 관리자가 가끔 Firebase 콘솔의 `requests` 컬렉션을 직접 확인해야
-합니다 (새 요청이 와도 이메일 알림 등은 오지 않습니다). 나중에 앱 안에서 바로
-승인하는 패널이나, 새 요청 시 이메일 알림을 받고 싶으시면 언제든 추가해드릴 수
-있습니다 (다만 이메일 알림은 Firebase 유료 요금제 전환이 필요합니다).
+## 4. 분석 히스토리 자동 삭제 (Firestore TTL)
 
-## 4. 로컬 미리보기
+로그인한 사용자가 분석한 결과는 `history` 컬렉션에 저장되고, 6개월이 지나면
+자동으로 삭제되도록 설계되어 있습니다. 자동 삭제가 실제로 동작하려면 Firestore에
+TTL(Time-to-live) 정책을 한 번 등록해야 합니다.
+
+1. Firebase 콘솔 → Firestore Database → **TTL** 탭 → "정책 추가"
+2. 컬렉션 그룹 ID: `history`
+3. 타임스탬프 필드: `expireAt`
+4. 저장
+
+등록해두면 `expireAt`이 지난 문서가 자동으로 삭제됩니다 (정확히 그 순간이 아니라
+보통 하루~이틀 이내에 처리되며, 이건 Firestore 자체의 정상적인 동작 방식입니다).
+등록하지 않아도 앱은 정상 동작하지만, 오래된 기록이 계속 쌓이게 됩니다.
+
+`firestore.rules`를 갱신했다면 (`history` 컬렉션 규칙 추가), 콘솔의 규칙 탭에 다시
+붙여넣거나 `firebase deploy --only firestore:rules`로 반영해주세요.
+
+## 5. 로컬 미리보기
 ```bash
 npx serve .
 ```
 (Google 로그인 팝업은 `localhost`에서도 정상 동작합니다. Firebase 콘솔의
 Authentication → Settings → 승인된 도메인에 `localhost`가 기본 포함되어 있는지 확인하세요.)
 
-## 5. 배포
+## 6. 배포
 ```bash
 npm install -g firebase-tools   # 최초 1회
 firebase login
@@ -74,7 +74,7 @@ firebase deploy --only hosting
 firebase deploy --only firestore:rules   # firestore.rules 반영 (콘솔에서 이미 붙여넣었다면 생략 가능)
 ```
 
-## 6. 사용 방법
+## 7. 사용 방법
 
 실제 화면 조작법(언어 선택, 파일 업로드, 단어 추가, 복사하기 등)은
 [README.md](./README.md)의 "사용법" 섹션을 참고하세요. 이 문서는 배포/운영 설정에

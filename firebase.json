@@ -4,8 +4,12 @@
     "ignore": [
       "firebase.json",
       "**/.*",
+      ".git/**",
+      ".claude/**",
+      ".firebase/**",
       "**/node_modules/**",
       "SETUP.md",
+      "README.md",
       "firestore.rules"
     ],
     "rewrites": [

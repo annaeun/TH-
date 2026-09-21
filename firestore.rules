@@ -1,21 +1,12 @@
-
 rules_version = '2';
-
-service cloud.firestore {
-  match /databases/{database}/documents {
-
-    // 분석 히스토리. 본인이 작성한 기록만 읽기/삭제할 수 있고, 새 기록은 반드시
-    // 자기 uid로만 만들 수 있습니다. expireAt 필드에 Firestore TTL 정책을 설정해두면
-    // 6개월(앱에서 계산해 넣는 기간) 지난 기록이 자동으로 삭제됩니다.
-    match /history/{historyId} {
-      allow get, list, delete: if request.auth != null && (resource == null || resource.data.uid == request.auth.uid);
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.uid;
-      allow update: if false;
-    }
-
-    // 그 외 모든 경로는 기본적으로 차단합니다.
-    match /{document=**} {
-      allow read, write: if false;
+  service cloud.firestore {
+    match /databases/{database}/documents {
+      match /history/{document} {
+        allow read, write, delete: if request.auth != null && request.auth.uid == resource.data.uid;
+        allow create: if request.auth != null && request.auth.uid == request.resource.data.uid;
+       }
+      match /users/{userId}/histories/{document} {
+        allow read, write, delete: if request.auth != null && request.auth.uid == userId;
+      }
     }
   }
-}

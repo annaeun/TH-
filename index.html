@@ -61,6 +61,7 @@
 
     <div id="mainContent" class="min-[1400px]:flex min-[1400px]:gap-6 min-[1400px]:items-start">
     <div id="leftCol" class="min-[1400px]:w-[42rem] min-[1400px]:flex-none">
+
     <!-- 입력 영역 -->
     <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 mb-6">
       <label class="block text-sm font-medium text-gray-600 mb-1.5">분석할 언어</label>
@@ -77,10 +78,18 @@
       <p class="text-xs text-gray-400 mt-1.5 mb-4">※ 공개(public) 유튜브 링크만 지원됩니다. 틱톡·인스타그램 등 다른 사이트 링크는 지원되지 않으니, 해당 영상은 다운로드 후 아래 파일 업로드를 이용해주세요.</p>
 
       <label class="block text-sm font-medium text-gray-600 mb-1.5">또는 파일 업로드</label>
+
       <div id="dropZone"
         class="border border-gray-300 rounded-lg p-2.5 mb-1.5 flex items-center justify-between gap-3 bg-white hover:border-orange-300 transition">
-        <input id="fileInput" type="file" accept="video/*,audio/*,image/*,application/pdf" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100 cursor-pointer" />
+        <input id="fileInput" type="file" accept="video/*,audio/*,image/*,application/pdf"
+          class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100 cursor-pointer" />
       </div>
+
+      <p id="pasteHint" class="text-xs text-orange-500 mb-1.5">
+        💡 화면 캡처 후 Ctrl+V(맥: Cmd+V)를 누르면 캡처한 이미지가 바로 파일로 첨부됩니다. (페이지 어디를 클릭한 상태여도 동작합니다)
+      </p>
+      <p id="attachedFileStatus" class="hidden text-xs text-green-600 mb-1.5 font-medium"></p>
+
       <p class="text-xs text-gray-400 mb-4">지원 형식 — 영상: MP4·MOV·WEBM·AVI·WMV·FLV·3GP / 음성: MP3·WAV·AAC·OGG·FLAC·AIFF / 이미지: JPG·PNG·WEBP·HEIC (대본·자막·메뉴판 등 텍스트가 담긴 사진) / 문서: PDF</p>
 
       <button id="analyzeBtn"
@@ -102,6 +111,7 @@
       <div id="playerHolder" class="rounded-lg overflow-hidden bg-black aspect-video flex items-center justify-center"></div>
     </div>
     </div>
+
     <div id="rightCol" class="min-[1400px]:w-[42rem] min-[1400px]:flex-none">
 
     <!-- 2) 태국어 스크립트 -->
@@ -128,6 +138,7 @@
         <h2 class="text-sm font-semibold text-gray-500">단어 정리</h2>
         <button id="copyVocabBtn" class="copy-btn text-xs text-orange-600 border border-orange-200 rounded-md px-2.5 py-1 hover:bg-orange-50">복사하기</button>
       </div>
+
       <div class="overflow-x-auto">
         <table id="app-vocab-table" class="w-full text-sm border-collapse">
           <thead>
@@ -146,18 +157,24 @@
 
       <div class="border-t border-gray-100 mt-4 pt-4">
         <p id="addVocabHint" class="text-xs font-medium text-gray-500 mb-2">단어 직접 추가하기 — 태국어만 입력하면 뜻과 설명은 AI가 자동으로 채웁니다</p>
+
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
           <input id="newVocabWord" type="text" placeholder="태국어 (예: กรุงเทพ)"
             class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300" />
+
           <input id="newVocabKorean" type="text" placeholder="한국어 뜻 (비워두면 자동 입력)"
             class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300" />
+
           <input id="newVocabContext" type="text" placeholder="설명 (비워두면 자동 입력)"
             class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300" />
         </div>
+
         <button id="addVocabBtn" type="button"
           class="w-full mt-2 border border-orange-300 text-orange-600 text-sm font-medium rounded-lg py-2 hover:bg-orange-50">
           + 단어 추가하고 표 업데이트
         </button>
+
+        <p id="vocabSaveStatus" class="text-xs text-green-600 text-center mt-2 hidden"></p>
       </div>
     </div>
 
@@ -184,25 +201,34 @@
       <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener"
         class="text-xs text-orange-600 hover:underline">키 발급받기 ↗</a>
     </div>
+
     <div class="flex gap-2 mt-3">
       <input id="geminiKeyInput" type="password" placeholder="AIza..." autocomplete="off"
         class="flex-1 border border-gray-300 rounded-lg px-3 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-orange-300" />
+
       <button id="toggleKeyVisibility" type="button"
         class="border border-gray-300 rounded-lg px-3 text-xs text-gray-500 hover:bg-gray-50">표시</button>
     </div>
+
     <div class="flex gap-2 mt-2">
       <button id="testKeyBtn" type="button"
         class="flex-1 border border-gray-300 text-gray-600 text-sm font-medium rounded-lg py-2 hover:bg-gray-50">연결 테스트</button>
+
       <button id="saveKeyBtn" type="button"
         class="flex-1 bg-gray-800 hover:bg-gray-900 text-white text-sm font-medium rounded-lg py-2">저장</button>
+
       <button id="removeKeyBtn" type="button"
         class="flex-1 border border-red-200 text-red-500 text-sm font-medium rounded-lg py-2 hover:bg-red-50">키 삭제</button>
     </div>
+
     <p id="keyStatus" class="text-xs mt-2 text-gray-400">이 브라우저에만 저장되며, 다른 사람이나 서버로 전송되지 않습니다.</p>
+
     <button id="listModelsBtn" type="button" class="text-xs text-gray-400 hover:text-gray-600 underline mt-2">
       사용 가능한 모델 목록 보기 (사용 순서: <span id="currentModelLabel"></span>)
     </button>
+
     <div id="modelListBox" class="hidden text-xs text-gray-500 mt-2 max-h-32 overflow-y-auto bg-gray-50 border border-gray-100 rounded-lg p-2"></div>
+
     <button id="closeKeyModalBtn" type="button"
       class="w-full mt-4 border border-gray-200 text-gray-500 text-sm rounded-lg py-2 hover:bg-gray-50">닫기</button>
   </div>
@@ -215,7 +241,9 @@
       <h2 class="text-sm font-semibold text-gray-700">분석 히스토리</h2>
       <button id="closeHistoryModalBtn" type="button" class="text-xs text-gray-400 hover:text-gray-600 underline">닫기</button>
     </div>
+
     <p class="text-xs text-gray-400 mb-3">분석 결과는 6개월간 보관되며, 이후 자동으로 삭제됩니다.</p>
+
     <div id="historyList" class="overflow-y-auto space-y-2 flex-1"></div>
   </div>
 </div>
@@ -231,14 +259,30 @@ const FIREBASE_CONFIG = {
 };
 
 const GEMINI_KEY_STORAGE = 'gemini_api_key';
-const MODEL_CANDIDATES_ANALYSIS = ['gemini-flash-latest', 'gemini-3.6-flash', 'gemini-3.5-flash-lite'];
-const MODEL_CANDIDATES_LIGHT = ['gemini-3.5-flash-lite', 'gemini-flash-latest', 'gemini-3.6-flash'];
+
+const MODEL_CANDIDATES_ANALYSIS = [
+  'gemini-flash-latest',
+  'gemini-3.6-flash',
+  'gemini-3.5-flash-lite'
+];
+
+const MODEL_CANDIDATES_LIGHT = [
+  'gemini-3.5-flash-lite',
+  'gemini-flash-latest',
+  'gemini-3.6-flash'
+];
+
 const GEMINI_MODEL = MODEL_CANDIDATES_LIGHT[0];
-function getGeminiKey() { return localStorage.getItem(GEMINI_KEY_STORAGE) || ''; }
+
+function getGeminiKey() {
+  return localStorage.getItem(GEMINI_KEY_STORAGE) || '';
+}
 
 firebase.initializeApp(FIREBASE_CONFIG);
+
 const auth = firebase.auth();
 const db = firebase.firestore();
+
 auth.setPersistence(firebase.auth.Auth.Persistence.SESSION);
 
 const gateEl = document.getElementById('gate');
@@ -250,7 +294,9 @@ const keyModalOverlay = document.getElementById('keyModalOverlay');
 
 document.getElementById('loginBtn').addEventListener('click', () => {
   gateErrorEl.classList.add('hidden');
+
   const provider = new firebase.auth.GoogleAuthProvider();
+
   auth.signInWithPopup(provider).catch(err => {
     gateErrorEl.textContent = '로그인에 실패했습니다. 다시 시도해주세요.';
     gateErrorEl.classList.remove('hidden');
@@ -260,20 +306,27 @@ document.getElementById('loginBtn').addEventListener('click', () => {
 
 document.getElementById('logoutBtn').addEventListener('click', () => auth.signOut());
 
-const IS_LOCAL_PREVIEW = ['localhost', '127.0.0.1'].includes(location.hostname) || location.protocol === 'file:';
+const IS_LOCAL_PREVIEW =
+  ['localhost', '127.0.0.1'].includes(location.hostname) ||
+  location.protocol === 'file:';
 
 if (IS_LOCAL_PREVIEW) {
   console.warn('[로컬 미리보기 모드] 로그인 없이 앱 화면을 표시합니다.');
+
   gateEl.classList.add('hidden');
   appEl.classList.remove('hidden');
+
   document.getElementById('geminiKeyInput').value = getGeminiKey();
+
   updateKeyStatus();
 } else {
   auth.onAuthStateChanged((user) => {
     if (user) {
       gateEl.classList.add('hidden');
       appEl.classList.remove('hidden');
+
       document.getElementById('geminiKeyInput').value = getGeminiKey();
+
       updateKeyStatus();
     } else {
       appEl.classList.add('hidden');
@@ -284,52 +337,91 @@ if (IS_LOCAL_PREVIEW) {
 
 document.getElementById('openKeyModalBtn').addEventListener('click', () => {
   keyInput.value = getGeminiKey();
+
   updateKeyStatus();
-  document.getElementById('currentModelLabel').textContent = MODEL_CANDIDATES_ANALYSIS.join(' → ');
+
+  document.getElementById('currentModelLabel').textContent =
+    MODEL_CANDIDATES_ANALYSIS.join(' → ');
+
   document.getElementById('modelListBox').classList.add('hidden');
+
   keyModalOverlay.classList.remove('hidden');
 });
 
 document.getElementById('listModelsBtn').addEventListener('click', async () => {
   const key = keyInput.value.trim();
   const box = document.getElementById('modelListBox');
-  if (!key) { showError('먼저 API 키를 입력해주세요.'); return; }
+
+  if (!key) {
+    showError('먼저 API 키를 입력해주세요.');
+    return;
+  }
+
   box.classList.remove('hidden');
   box.textContent = '불러오는 중...';
+
   try {
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key}`);
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${key}`
+    );
+
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error?.message || '모델 목록을 불러오지 못했습니다.');
+
+    if (!res.ok) {
+      throw new Error(
+        data.error?.message || '모델 목록을 불러오지 못했습니다.'
+      );
+    }
+
     const names = (data.models || [])
-      .filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
+      .filter(m =>
+        (m.supportedGenerationMethods || []).includes('generateContent')
+      )
       .map(m => m.name.replace('models/', ''));
+
     box.innerHTML = names.length
       ? names.map(n => `<div>${escapeHtml(n)}</div>`).join('')
       : '이 키로 사용 가능한 모델이 없습니다.';
+
   } catch (err) {
-    box.textContent = '✗ ' + (err.message || '모델 목록을 불러오지 못했습니다.');
+    box.textContent =
+      '✗ ' + (err.message || '모델 목록을 불러오지 못했습니다.');
   }
 });
+
 document.getElementById('closeKeyModalBtn').addEventListener('click', () => {
   keyModalOverlay.classList.add('hidden');
 });
+
 keyModalOverlay.addEventListener('click', (e) => {
-  if (e.target === keyModalOverlay) keyModalOverlay.classList.add('hidden');
+  if (e.target === keyModalOverlay) {
+    keyModalOverlay.classList.add('hidden');
+  }
 });
 
 function updateKeyStatus() {
   if (getGeminiKey()) {
-    keyStatus.textContent = '✓ API 키가 저장되어 있습니다. (이 브라우저에만 저장됨)';
+    keyStatus.textContent =
+      '✓ API 키가 저장되어 있습니다. (이 브라우저에만 저장됨)';
+
     keyStatus.className = 'text-xs mt-2 text-green-600';
   } else {
-    keyStatus.textContent = '분석을 시작하려면 먼저 API 키를 입력하고 저장하세요.';
+    keyStatus.textContent =
+      '분석을 시작하려면 먼저 API 키를 입력하고 저장하세요.';
+
     keyStatus.className = 'text-xs mt-2 text-orange-500';
   }
 }
 
 document.getElementById('saveKeyBtn').addEventListener('click', () => {
   const key = keyInput.value.trim();
-  if (!key) { keyStatus.textContent = '키를 입력해주세요.'; keyStatus.className = 'text-xs mt-2 text-red-500'; return; }
+
+  if (!key) {
+    keyStatus.textContent = '키를 입력해주세요.';
+    keyStatus.className = 'text-xs mt-2 text-red-500';
+    return;
+  }
+
   localStorage.setItem(GEMINI_KEY_STORAGE, key);
   updateKeyStatus();
 });
@@ -342,10 +434,17 @@ document.getElementById('removeKeyBtn').addEventListener('click', () => {
 
 document.getElementById('testKeyBtn').addEventListener('click', async () => {
   const key = keyInput.value.trim();
-  if (!key) { keyStatus.textContent = '키를 입력해주세요.'; keyStatus.className = 'text-xs mt-2 text-red-500'; return; }
+
+  if (!key) {
+    keyStatus.textContent = '키를 입력해주세요.';
+    keyStatus.className = 'text-xs mt-2 text-red-500';
+    return;
+  }
+
   localStorage.setItem(GEMINI_KEY_STORAGE, key);
   keyStatus.textContent = '연결 테스트 중...';
   keyStatus.className = 'text-xs mt-2 text-gray-400';
+
   try {
     await callGemini([{ text: 'Reply with exactly one word: OK' }]);
     keyStatus.textContent = '✓ 정상적으로 연결되었습니다.';
@@ -399,10 +498,13 @@ const LANGUAGES = {
     speechLang: 'en-US',
   },
 };
+
 const LANGUAGE_STORAGE = 'analysis_language';
+
 function getCurrentLanguage() {
   return LANGUAGES[localStorage.getItem(LANGUAGE_STORAGE)] ? localStorage.getItem(LANGUAGE_STORAGE) : 'thai';
 }
+
 function getLanguageConfig(lang) {
   return LANGUAGES[lang] || LANGUAGES.thai;
 }
@@ -484,13 +586,47 @@ function handleSelectedFile(file) {
   const dataTransfer = new DataTransfer();
   dataTransfer.items.add(file);
   fileInputEl.files = dataTransfer.files;
+  // 프로그래밍적으로 files를 지정하면 change 이벤트가 자동으로 발생하지 않으므로 수동으로 트리거합니다.
+  // (이게 빠져 있으면 붙여넣기/드래그앤드롭으로 첨부해도 화면에 아무 반응이 없어 "안 된다"고 오해하게 됩니다.)
+  fileInputEl.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
-// 클립보드 이미지 붙여넣기 (Ctrl + V) - 최소 안전 변경
+// 파일이 첨부되면(파일 선택 대화상자 / 드래그앤드롭 / 클립보드 붙여넣기 모두 공통) 즉시 미리보기와 상태 문구를 보여줍니다.
+function onFileAttached(file) {
+  if (!file) return;
+
+  // 유튜브 링크가 남아 있으면 분석 시 링크가 우선 사용되어 방금 첨부한 파일이 무시될 수 있으므로 비워줍니다.
+  const videoUrlInput = document.getElementById('videoUrl');
+  if (videoUrlInput.value.trim()) videoUrlInput.value = '';
+
+  hideError();
+  renderPlayer({ youtubeUrl: null, file });
+
+  const statusEl = document.getElementById('attachedFileStatus');
+  const sizeMb = (file.size / 1024 / 1024).toFixed(1);
+  statusEl.textContent = `✅ 첨부됨: ${file.name} (${sizeMb}MB)`;
+  statusEl.classList.remove('hidden');
+}
+
+fileInputEl.addEventListener('change', () => {
+  const f = fileInputEl.files[0];
+  if (f) onFileAttached(f);
+});
+
+document.getElementById('videoUrl').addEventListener('input', () => {
+  // 사용자가 직접 링크를 입력하면, 기존에 붙여넣거나 선택해둔 파일을 해제해 혼동을 방지합니다.
+  if (fileInputEl.files.length) {
+    fileInputEl.value = '';
+    document.getElementById('attachedFileStatus').classList.add('hidden');
+  }
+});
+
+// [해결 1] 전역 클립보드 Ctrl+V / Cmd+V 붙여넣기 지원
 window.addEventListener('paste', (e) => {
-  const items = (e.clipboardData || e.originalEvent?.clipboardData)?.items;
-  if (!items) return;
-  for (let item of items) {
+  const clipboardData = e.clipboardData || window.clipboardData;
+  if (!clipboardData || !clipboardData.items) return;
+
+  for (let item of clipboardData.items) {
     if (item.kind === 'file') {
       const blob = item.getAsFile();
       if (blob) {
@@ -713,6 +849,7 @@ function renderVocabTable() {
   });
 }
 
+// [해결 3] 단어 삭제 시 히스토리 즉시 반영
 document.getElementById('vocabBody').addEventListener('click', async (e) => {
   const removeBtn = e.target.closest('.removeVocabBtn');
   if (removeBtn && lastResult) {
@@ -747,7 +884,7 @@ function playWordAudio(item) {
 
   const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(item.word)}&tl=${speechLang}&client=tw-ob`;
   const audio = new Audio(ttsUrl);
-  
+
   audio.play().catch((err) => {
     console.warn('구글 TTS 재생 실패, 브라우저 내장 음성으로 대체합니다.', err);
     speakWithBrowserTTS(item.word, speechLang);
@@ -769,12 +906,14 @@ ${scriptContext || ''}
   return await callGemini([{ text: prompt }], { maxOutputTokens: 1024 });
 }
 
+// [해결 3] 단어 직접 추가 시 히스토리 즉시 누적 반영
 document.getElementById('addVocabBtn').addEventListener('click', async () => {
   if (!lastResult) return;
   const wordInput = document.getElementById('newVocabWord');
   const koreanInput = document.getElementById('newVocabKorean');
   const contextInput = document.getElementById('newVocabContext');
   const addBtn = document.getElementById('addVocabBtn');
+  const saveStatus = document.getElementById('vocabSaveStatus');
   const word = wordInput.value.trim();
   let korean = koreanInput.value.trim();
   let context = contextInput.value.trim();
@@ -814,7 +953,17 @@ document.getElementById('addVocabBtn').addEventListener('click', async () => {
   if (!lastResult.vocabulary) lastResult.vocabulary = [];
   lastResult.vocabulary.push({ word, korean, context, pronunciation });
   renderVocabTable();
-  await autoSaveHistory();
+
+  const saveResult = await autoSaveHistory();
+
+  if (saveResult && saveResult.ok) {
+    saveStatus.textContent = '✓ 히스토리에 수정본이 저장되었습니다.';
+    saveStatus.className = 'text-xs text-green-600 text-center mt-2';
+    saveStatus.classList.remove('hidden');
+    setTimeout(() => saveStatus.classList.add('hidden'), 2500);
+  }
+  // 저장 실패 시에는 autoSaveHistory 내부(showHistorySaveError)가 이미 빨간 오류 문구를 띄우므로
+  // 여기서 성공 메시지로 덮어쓰지 않습니다.
 
   wordInput.value = '';
   koreanInput.value = '';
@@ -852,17 +1001,53 @@ function renderResult(result) {
 
 const HISTORY_RETENTION_DAYS = 180;
 
-async function autoSaveHistory() {
-  if (!lastResult || !currentSource) return;
-  await saveToHistory(lastResult, currentSource);
+// 문자열이 URL 형태인지 검사합니다. content_title이나 sourceLabel이 실수로
+// 링크 그대로 들어온 경우 히스토리 제목으로 쓰지 않기 위해 사용합니다.
+function looksLikeUrl(str) {
+  return typeof str === 'string' && /^https?:\/\//i.test(str.trim());
 }
 
+// Firestore 문서 ID에는 '/' 등 특정 문자를 쓸 수 없습니다.
+// 원래 코드는 btoa(base64)로 인코딩했는데, base64 결과에 '/'가 섞여 나올 수 있어
+// 문서 경로가 깨지는 버그가 있었습니다. 영숫자 외 문자를 전부 '_'로 치환하는 방식이
+// 더 단순하고 안전합니다(유튜브 URL 구조상 서로 다른 링크가 같은 키로 충돌할 위험도 없습니다).
+function safeDocKey(str) {
+  return str.replace(/[^a-zA-Z0-9_-]/g, '_');
+}
+
+// 히스토리에 표시할 제목을 고릅니다: content_title → sourceLabel → 기본값 순으로 시도하되,
+// 둘 다 URL이면 건너뛰어 항상 사람이 읽을 수 있는 제목이 나오도록 합니다.
+function pickDisplayTitle(contentTitle, fallbackLabel) {
+  let title = contentTitle;
+  if (!title || looksLikeUrl(title)) title = fallbackLabel;
+  if (!title || looksLikeUrl(title)) title = '분석 영상/자료';
+  title = String(title).trim();
+  return title.length > 25 ? title.substring(0, 25) + '...' : title;
+}
+
+// Firestore 저장 실패 시 콘솔뿐 아니라 화면에도 표시해 원인을 바로 알 수 있게 합니다.
+function showHistorySaveError(err) {
+  const msg = '⚠️ 히스토리 저장 실패: ' + (err && err.message ? err.message : '알 수 없는 오류') +
+    ' (Firestore 보안 규칙 또는 로그인 상태를 확인해주세요)';
+  const saveStatus = document.getElementById('vocabSaveStatus');
+  if (saveStatus) {
+    saveStatus.textContent = msg;
+    saveStatus.className = 'text-xs text-red-600 text-center mt-2';
+    saveStatus.classList.remove('hidden');
+  }
+}
+
+async function autoSaveHistory() {
+  if (!lastResult || !currentSource) return { ok: false };
+  return await saveToHistory(lastResult, currentSource);
+}
+
+// [해결 2 & 3] 유튜브 주소가 아닌 제목(최대 25자) 저장 및 최종 수정본 누적 저장
 async function saveToHistory(result, source) {
-  if (!auth.currentUser) return;
+  if (!auth.currentUser) return { ok: false, error: new Error('로그인이 필요합니다.') };
   const expireAt = new Date(Date.now() + HISTORY_RETENTION_DAYS * 24 * 60 * 60 * 1000);
-  
-  let rawLabel = result.content_title || source.sourceLabel || '무제';
-  let shortLabel = rawLabel.length > 25 ? rawLabel.substring(0, 25) + '...' : rawLabel;
+
+  const shortLabel = pickDisplayTitle(result.content_title, source.sourceLabel);
 
   try {
     const historyData = {
@@ -883,15 +1068,18 @@ async function saveToHistory(result, source) {
     if (currentDocId) {
       await db.collection('history').doc(currentDocId).set(historyData, { merge: true });
     } else if (source.sourceUrl) {
-      const docKey = `${auth.currentUser.uid}_${btoa(encodeURIComponent(source.sourceUrl)).replace(/=/g, '')}`;
+      const docKey = `${auth.currentUser.uid}_${safeDocKey(source.sourceUrl)}`;
       currentDocId = docKey;
-      await db.collection('history').doc(docKey).set(historyData);
+      await db.collection('history').doc(docKey).set(historyData, { merge: true });
     } else {
       const ref = await db.collection('history').add(historyData);
       currentDocId = ref.id;
     }
+    return { ok: true };
   } catch (err) {
     console.error('히스토리 저장 실패:', err);
+    showHistorySaveError(err);
+    return { ok: false, error: err };
   }
 }
 
@@ -901,6 +1089,7 @@ function loadHistoryEntry(docId, data) {
   ['playerSection', 'scriptSection', 'translationSection', 'vocabSection', 'copyAllSection'].forEach(id =>
     document.getElementById(id).classList.add('hidden')
   );
+  document.getElementById('attachedFileStatus').classList.add('hidden');
   currentSource = {
     sourceType: data.sourceType,
     sourceLabel: data.sourceLabel,
@@ -919,6 +1108,7 @@ function loadHistoryEntry(docId, data) {
 const historyModalOverlay = document.getElementById('historyModalOverlay');
 const historyList = document.getElementById('historyList');
 
+// [해결 2] 히스토리 목록 출력 시 무조건 영상/자료 제목(최대 25자)으로 표시
 document.getElementById('openHistoryBtn').addEventListener('click', async () => {
   historyModalOverlay.classList.remove('hidden');
 
@@ -945,11 +1135,14 @@ document.getElementById('openHistoryBtn').addEventListener('click', async () => 
       const data = docSnap.data();
       const dateLabel = data.analyzedAt ? data.analyzedAt.toDate().toLocaleString('ko-KR') : '';
       const flag = getLanguageConfig(data.language).flag;
+
+      const displayTitle = pickDisplayTitle(data.content_title, data.sourceLabel);
+
       const row = document.createElement('div');
       row.className = 'w-full text-left border border-gray-200 rounded-lg px-3 py-2.5 hover:bg-gray-50 flex items-center justify-between gap-2 cursor-pointer';
       row.innerHTML = `
         <span class="min-w-0">
-          <span class="block text-sm text-gray-800 truncate" title="${escapeHtml(data.content_title || data.sourceLabel || '')}">${flag} ${escapeHtml(data.sourceLabel || '')}</span>
+          <span class="block text-sm text-gray-800 truncate" title="${escapeHtml(data.content_title || displayTitle)}">${flag} ${escapeHtml(displayTitle)}</span>
           <span class="block text-xs text-gray-400">${escapeHtml(dateLabel)}</span>
         </span>
         <button type="button" class="deleteHistoryBtn text-gray-300 hover:text-red-500 text-sm shrink-0 px-1" title="삭제">✕</button>
@@ -1038,13 +1231,13 @@ analyzeBtn.addEventListener('click', async () => {
     if (ytTitle) result.content_title = ytTitle;
 
     renderResult(result);
-    
+
     currentSource = {
       sourceType: url ? 'youtube' : 'file',
       sourceLabel: ytTitle || (url ? url : file.name),
       sourceUrl: canonicalUrl,
     };
-    
+
     await saveToHistory(result, currentSource);
     setStatus('완료!');
     setTimeout(hideStatus, 1500);

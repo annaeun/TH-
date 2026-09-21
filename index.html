@@ -79,15 +79,18 @@
 
       <label class="block text-sm font-medium text-gray-600 mb-1.5">또는 파일 업로드</label>
 
-      <div id="dropZone"
-        class="border border-gray-300 rounded-lg p-2.5 mb-1.5 flex items-center justify-between gap-3 bg-white hover:border-orange-300 transition">
-        <input id="fileInput" type="file" accept="video/*,audio/*,image/*,application/pdf"
-          class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100 cursor-pointer" />
+      <div id="dropZone" tabindex="0"
+        class="border-2 border-dashed border-gray-300 rounded-lg p-4 mb-2 text-center bg-white hover:border-orange-300 focus:outline-none focus:ring-2 focus:ring-orange-300 transition cursor-text">
+        <p class="text-sm text-gray-600">📋 화면 캡처 후 여기서 <span class="font-semibold text-orange-600">Ctrl+V</span>(맥: <span class="font-semibold text-orange-600">Cmd+V</span>)를 누르세요</p>
+        <p class="text-xs text-gray-400 mt-1">또는 이 영역에 파일을 끌어다 놓아도 됩니다. (이 영역을 클릭해도 탐색기는 열리지 않습니다)</p>
       </div>
 
-      <p id="pasteHint" class="text-xs text-orange-500 mb-1.5">
-        💡 화면 캡처 후 Ctrl+V(맥: Cmd+V)를 누르면 캡처한 이미지가 바로 파일로 첨부됩니다. (페이지 어디를 클릭한 상태여도 동작합니다)
-      </p>
+      <input id="fileInput" type="file" accept="video/*,audio/*,image/*,application/pdf" class="hidden" />
+      <button id="browseBtn" type="button"
+        class="text-xs text-gray-500 border border-gray-300 rounded-lg px-3 py-1.5 mb-1.5 hover:bg-gray-50">
+        📁 파일 탐색기에서 직접 선택
+      </button>
+
       <p id="attachedFileStatus" class="hidden text-xs text-green-600 mb-1.5 font-medium"></p>
 
       <p class="text-xs text-gray-400 mb-4">지원 형식 — 영상: MP4·MOV·WEBM·AVI·WMV·FLV·3GP / 음성: MP3·WAV·AAC·OGG·FLAC·AIFF / 이미지: JPG·PNG·WEBP·HEIC (대본·자막·메뉴판 등 텍스트가 담긴 사진) / 문서: PDF</p>
@@ -611,6 +614,12 @@ function onFileAttached(file) {
 fileInputEl.addEventListener('change', () => {
   const f = fileInputEl.files[0];
   if (f) onFileAttached(f);
+});
+
+// 탐색기는 이 버튼을 눌렀을 때만 열립니다. dropZone(붙여넣기/드래그 영역)은 더 이상
+// <input type="file">이 아니라 일반 div라서, 클릭해도 탐색기가 뜨지 않습니다.
+document.getElementById('browseBtn').addEventListener('click', () => {
+  fileInputEl.click();
 });
 
 document.getElementById('videoUrl').addEventListener('input', () => {
